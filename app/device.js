@@ -108,24 +108,31 @@
         }
     }
 
-    var PREVIEW_APPS = [
-        ['Netflix', '#b20710'], ['YouTube', '#cc0000'], ['Prime Video', '#1a98ff'],
-        ['Disney+', '#0b3d91'], ['Max', '#2b2bd9'], ['Plex', '#e5a00d'],
-        ['Spotify', '#1db954'], ['Apple TV', '#333333'], ['Hulu', '#1ce783'],
-        ['Jellyfin', '#7b4ddb'], ['Internet', '#3a7bd5'], ['Samsung TV Plus', '#4a4a7a'],
-        ['Gaming Hub', '#6b2fa0'], ['SmartThings', '#15bfff']
-    ];
+    // "Live TV" opens the TV's own antenna/cable viewer, like the Live TV
+    // tile on Samsung's home bar. It isn't in the app list, so add it here.
+    var LIVE_TV = { id: 'org.tizen.tv-viewer', name: 'Live TV', icon: '', color: '#2f6f5e', kind: 'livetv' };
+
+    // Apps put on the dock the first time NIfty starts, in this order.
+    // Matched against the app name, case-insensitive: exact match first,
+    // then "starts with". Change the dock later with Edit dock / All apps.
+    var DEFAULT_DOCK = ['stremio', 'live tv', 'hulu', 'netflix', 'youtube',
+        'prime video', 'disney+', 'apple tv'];
+
+    var PREVIEW_APPS = ['Stremio', 'Hulu', 'Netflix', 'YouTube', 'YouTube TV', 'Prime Video',
+        'Disney+', 'Apple TV', 'Peacock TV', 'Spotify', 'Tubi', 'Sling TV', 'Xbox',
+        'Browser', 'SmartThings', 'Samsung TV Plus', 'Glance'];
 
     function previewApps() {
         var list = [];
         for (var i = 0; i < PREVIEW_APPS.length; i++) {
             list.push({
-                id: 'preview.' + PREVIEW_APPS[i][0].toLowerCase().replace(/[^a-z0-9]/g, ''),
-                name: PREVIEW_APPS[i][0],
+                id: 'preview.' + PREVIEW_APPS[i].toLowerCase().replace(/[^a-z0-9]/g, ''),
+                name: PREVIEW_APPS[i],
                 icon: '',
-                color: PREVIEW_APPS[i][1]
+                color: colorFor(PREVIEW_APPS[i])
             });
         }
+        list.push(LIVE_TV);
         return list;
     }
 
@@ -145,6 +152,7 @@
                     if (!isRealApp(a.id, a.name)) { continue; }
                     list.push({ id: a.id, name: a.name, icon: a.iconPath || '', color: colorFor(a.name) });
                 }
+                list.push(LIVE_TV);
                 done(list);
             }, function (err) {
                 global.console.error('getAppsInfo failed', err && err.message);
@@ -173,7 +181,7 @@
 
     /** Simple persistent storage (localStorage works inside Tizen web apps). */
     // v2: the app filter changed, so re-run the first-start hidden list.
-    var STORE_KEY = 'nifty.home.v2';
+    var STORE_KEY = 'nifty.home.v3';
 
     function load() {
         try {
@@ -194,6 +202,7 @@
         isTV: hasTizen,
         KEYS: KEYS,
         DEFAULT_HIDDEN: DEFAULT_HIDDEN,
+        DEFAULT_DOCK: DEFAULT_DOCK,
         getApps: getApps,
         launch: launch,
         load: load,

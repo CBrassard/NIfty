@@ -22,6 +22,24 @@ sed -i.bak \
     "$STAGE/config.xml"
 rm -f "$STAGE/config.xml.bak"
 
+# Your wallpaper photos: .local/wallpapers/*.jpg|jpeg|png|webp (not in git).
+WALLS="$ROOT/.local/wallpapers"
+LIST=""
+if [[ -d "$WALLS" ]]; then
+    mkdir -p "$STAGE/wallpapers"
+    n=0
+    for f in "$WALLS"/*; do
+        case "${f,,}" in *.jpg|*.jpeg|*.png|*.webp) ;; *) continue ;; esac
+        n=$((n + 1))
+        name="wall$n.${f##*.}"
+        name="${name,,}"
+        cp "$f" "$STAGE/wallpapers/$name"
+        LIST="$LIST\"wallpapers/$name\","
+    done
+    echo "Wallpapers: $n"
+fi
+printf 'window.NIFTY_WALLPAPERS = [%s];\n' "${LIST%,}" > "$STAGE/wallpapers.js"
+
 "$TIZEN" build-web -- "$(native_path "$STAGE")"
 "$TIZEN" package -t wgt -s "$CERT_PROFILE" -- "$(native_path "$STAGE/.buildResult")"
 

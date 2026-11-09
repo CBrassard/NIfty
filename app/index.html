@@ -7,31 +7,37 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="backdrop" class="backdrop"></div>
+    <div id="wallpaper" class="wallpaper"></div>
+    <div class="shade"></div>
 
-    <main class="screen">
-        <header class="top">
-            <div class="clock">
-                <div id="time" class="time">--:--</div>
-                <div id="date" class="date"></div>
-            </div>
-            <div id="greeting" class="greeting"></div>
-        </header>
+    <header class="topbar">
+        <div id="time" class="time">--:--</div>
+        <nav class="actions">
+            <button id="btn-all" class="action" data-action="all">
+                <span class="glyph glyph-grid"><i></i><i></i><i></i><i></i></span>All apps
+            </button>
+            <button id="btn-edit" class="action" data-action="edit">
+                <span class="glyph glyph-pen"></span><span id="btn-edit-label">Edit dock</span>
+            </button>
+        </nav>
+    </header>
 
-        <section class="apps">
-            <div class="apps-head">
-                <h1 class="label">Apps</h1>
-                <div id="mode" class="mode"></div>
+    <div id="hint" class="hint"></div>
+
+    <section class="dock-wrap">
+        <div id="dock" class="dock" role="list"></div>
+    </section>
+
+    <section id="drawer" class="drawer" hidden>
+        <div class="drawer-card">
+            <div class="drawer-head">
+                <h1 class="drawer-title">All apps</h1>
+                <div id="drawer-hint" class="drawer-hint"></div>
             </div>
             <div id="grid" class="grid" role="list"></div>
             <div id="empty" class="empty" hidden>No apps found.</div>
-        </section>
-
-        <footer class="bottom">
-            <button id="edit" class="pill" data-focus="edit">Arrange</button>
-            <span id="hint" class="hint">Choose an app with the arrow keys and press OK.</span>
-        </footer>
-    </main>
+        </div>
+    </section>
 
     <div id="menu" class="menu" hidden>
         <div class="menu-card">
@@ -40,6 +46,7 @@
         </div>
     </div>
 
+    <script src="wallpapers.js"></script>
     <script src="device.js"></script>
     <script src="main.js"></script>
 </body>

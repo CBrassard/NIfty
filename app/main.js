@@ -1,10 +1,11 @@
 /*
- * main.js - NIfty home screen.
+ * main.js - NIfty home screen: a wallpaper, a clock and a dock of your apps.
  *
  * Remote controls (works with the basic Samsung Smart/Solar remote):
- *   Arrows   move focus
- *   OK       open the app (or, in Arrange mode, open the app's options)
- *   Back     close a menu / cancel a move / leave Arrange mode
+ *   Left/Right  move along the dock
+ *   Up          to the "All apps" / "Edit dock" buttons
+ *   OK          open the app (in Edit mode: options for that app)
+ *   Back        close a menu / cancel a move / leave Edit mode / close All apps
  *
  * Written in ES5 for older Tizen browsers.
  */
@@ -12,40 +13,84 @@
     'use strict';
 
     var D = global.NiftyDevice;
-    var COLS = 6;
+    var COLS = 6;           // columns in the All apps grid
+    var ADD_ID = '__add__'; // the "+ Add apps" item shown on the dock while editing
 
     var els = {
-        backdrop: doc.getElementById('backdrop'),
         time: doc.getElementById('time'),
-        date: doc.getElementById('date'),
-        greeting: doc.getElementById('greeting'),
+        hint: doc.getElementById('hint'),
+        dock: doc.getElementById('dock'),
+        btnAll: doc.getElementById('btn-all'),
+        btnEdit: doc.getElementById('btn-edit'),
+        btnEditLabel: doc.getElementById('btn-edit-label'),
+        drawer: doc.getElementById('drawer'),
+        drawerHint: doc.getElementById('drawer-hint'),
         grid: doc.getElementById('grid'),
         empty: doc.getElementById('empty'),
-        mode: doc.getElementById('mode'),
-        edit: doc.getElementById('edit'),
-        hint: doc.getElementById('hint'),
         menu: doc.getElementById('menu'),
         menuTitle: doc.getElementById('menu-title'),
         menuItems: doc.getElementById('menu-items')
     };
+    var buttons = [els.btnAll, els.btnEdit];
 
-    // Persisted: user's app order and hidden apps.
-    var prefs = D.load() || { order: [], hidden: {}, seeded: false };
-    if (!prefs.order) { prefs.order = []; }
+    // Persisted: the dock (app ids in order) and apps hidden from All apps.
+    var prefs = D.load() || {};
+    if (!prefs.dock) { prefs.dock = []; }
     if (!prefs.hidden) { prefs.hidden = {}; }
 
     // Runtime state.
-    var apps = [];          // all installed apps, in the user's order
-    var arranging = false;  // Arrange mode on/off
-    var moving = null;      // app id being moved, or null
-    var zone = 'grid';      // 'grid' | 'edit' | 'menu'
-    var focusIndex = 0;     // focus inside the grid
-    var menu = null;        // { items: [{label, run}], index }
+    var apps = [];          // every app, alphabetical
+    var byId = {};
+    var editing = false;    // Edit dock mode
+    var moving = null;      // dock app id being moved
+    var zone = 'dock';      // 'dock' | 'top' | 'drawer' | 'menu'
+    var dockIndex = 0;
+    var topIndex = 0;
+    var gridIndex = 0;
+    var menu = null;        // { items, index, back }
 
-    /* ---------- apps ---------- */
+    /* ---------- data ---------- */
 
-    function visibleApps() {
-        if (arranging) { return apps; }
+    function persist() { D.save(prefs); }
+
+    function seed(list) {
+        var i, j;
+        if (!prefs.hiddenSeeded) {
+            for (i = 0; i < list.length; i++) {
+                var name = list[i].name.toLowerCase();
+                for (j = 0; j < D.DEFAULT_HIDDEN.length; j++) {
+                    if (name.indexOf(D.DEFAULT_HIDDEN[j]) !== -1) { prefs.hidden[list[i].id] = true; }
+                }
+            }
+            prefs.hiddenSeeded = true;
+        }
+        if (!prefs.dockSeeded && list.length > 1) {
+            for (i = 0; i < D.DEFAULT_DOCK.length; i++) {
+                var want = D.DEFAULT_DOCK[i];
+                var hit = null;
+                for (j = 0; j < list.length && !hit; j++) {
+                    if (list[j].name.toLowerCase() === want) { hit = list[j]; }
+                }
+                for (j = 0; j < list.length && !hit; j++) {
+                    if (list[j].name.toLowerCase().indexOf(want) === 0) { hit = list[j]; }
+                }
+                if (hit && prefs.dock.indexOf(hit.id) === -1) { prefs.dock.push(hit.id); }
+            }
+            prefs.dockSeeded = true;
+        }
+    }
+
+    function dockApps() {
+        var out = [];
+        for (var i = 0; i < prefs.dock.length; i++) {
+            if (byId[prefs.dock[i]]) { out.push(byId[prefs.dock[i]]); }
+        }
+        if (editing) { out.push({ id: ADD_ID, name: 'Add apps', kind: 'add' }); }
+        return out;
+    }
+
+    function drawerApps() {
+        if (editing) { return apps; }
         var out = [];
         for (var i = 0; i < apps.length; i++) {
             if (!prefs.hidden[apps[i].id]) { out.push(apps[i]); }
@@ -53,53 +98,17 @@
         return out;
     }
 
-    function seedHidden(list) {
-        if (prefs.seeded) { return; }
-        for (var i = 0; i < list.length; i++) {
-            var name = list[i].name.toLowerCase();
-            for (var j = 0; j < D.DEFAULT_HIDDEN.length; j++) {
-                if (name.indexOf(D.DEFAULT_HIDDEN[j]) !== -1) {
-                    prefs.hidden[list[i].id] = true;
-                }
-            }
-        }
-        prefs.seeded = true;
-    }
-
-    function applyOrder(list) {
-        var byId = {};
-        var i;
-        for (i = 0; i < list.length; i++) { byId[list[i].id] = list[i]; }
-
-        var ordered = [];
-        var seen = {};
-        for (i = 0; i < prefs.order.length; i++) {
-            var id = prefs.order[i];
-            if (byId[id] && !seen[id]) { ordered.push(byId[id]); seen[id] = true; }
-        }
-        // New apps go to the end, alphabetically.
-        var rest = [];
-        for (i = 0; i < list.length; i++) {
-            if (!seen[list[i].id]) { rest.push(list[i]); }
-        }
-        rest.sort(function (a, b) { return a.name.localeCompare(b.name); });
-        return ordered.concat(rest);
-    }
-
-    function persist() {
-        prefs.order = [];
-        for (var i = 0; i < apps.length; i++) { prefs.order.push(apps[i].id); }
-        D.save(prefs);
-    }
+    function onDock(id) { return prefs.dock.indexOf(id) !== -1; }
 
     function refreshApps() {
         D.getApps(function (list) {
-            seedHidden(list);
-            var focusedId = currentApp() ? currentApp().id : null;
-            apps = applyOrder(list);
+            seed(list);
+            list.sort(function (a, b) { return a.name.localeCompare(b.name); });
+            apps = list;
+            byId = {};
+            for (var i = 0; i < list.length; i++) { byId[list[i].id] = list[i]; }
             persist();
             render();
-            if (focusedId) { focusApp(focusedId); }
         });
     }
 
@@ -114,84 +123,133 @@
         return s || '?';
     }
 
-    function tile(app, index) {
-        var el = doc.createElement('div');
-        el.className = 'tile';
-        el.setAttribute('role', 'listitem');
-        el.setAttribute('data-index', String(index));
-        if (prefs.hidden[app.id]) { el.className += ' is-hidden'; }
-        if (moving === app.id) { el.className += ' is-moving'; }
-
-        var art = doc.createElement('div');
-        art.className = 'art';
+    // Small icon: the app's own icon, a drawn glyph, or its initials.
+    function iconEl(app) {
+        var box = doc.createElement('div');
+        box.className = 'icon';
+        if (app.kind === 'livetv') {
+            box.className += ' icon-glyph';
+            box.innerHTML = '<span class="g-tv"><i></i></span>';
+            return box;
+        }
+        if (app.kind === 'add') {
+            box.className += ' icon-glyph';
+            box.innerHTML = '<span class="g-plus"></span>';
+            return box;
+        }
         var letter = doc.createElement('span');
         letter.className = 'letter';
         letter.textContent = initials(app.name);
-        art.appendChild(letter);
-        if (app.color) { art.style.backgroundColor = app.color; }
-
+        box.appendChild(letter);
+        if (app.color) { box.style.backgroundColor = app.color; }
         if (app.icon) {
             var img = doc.createElement('img');
             img.alt = '';
-            img.onload = function () { art.className += ' has-icon'; };
+            img.onload = function () { box.className += ' has-img'; };
             img.onerror = function () { if (img.parentNode) { img.parentNode.removeChild(img); } };
             img.src = app.icon;
-            art.appendChild(img);
+            box.appendChild(img);
         }
+        return box;
+    }
 
-        var name = doc.createElement('div');
-        name.className = 'name';
-        name.textContent = app.name;
-
-        el.appendChild(art);
-        el.appendChild(name);
-
-        if (prefs.hidden[app.id]) {
-            var badge = doc.createElement('div');
-            badge.className = 'badge';
-            badge.textContent = 'Hidden';
-            el.appendChild(badge);
-        }
-
-        el.onclick = function () {
-            zone = 'grid';
-            focusIndex = index;
-            activate();
-        };
+    function item(app, cls) {
+        var el = doc.createElement('div');
+        el.className = cls;
+        el.setAttribute('role', 'listitem');
+        el.appendChild(iconEl(app));
+        var label = doc.createElement('div');
+        label.className = 'label';
+        label.textContent = app.name;
+        el.appendChild(label);
         return el;
     }
 
-    function render() {
-        var list = visibleApps();
+    function renderDock() {
+        var list = dockApps();
+        els.dock.innerHTML = '';
+        for (var i = 0; i < list.length; i++) {
+            var el = item(list[i], 'dock-item');
+            if (moving === list[i].id) { el.className += ' is-moving'; }
+            el.onclick = (function (n) { return function () { zone = 'dock'; dockIndex = n; activate(); }; }(i));
+            els.dock.appendChild(el);
+        }
+        if (!list.length) {
+            var none = doc.createElement('div');
+            none.className = 'dock-empty';
+            none.textContent = 'Your dock is empty. Go up to All apps to add some.';
+            els.dock.appendChild(none);
+        }
+        if (dockIndex >= list.length) { dockIndex = Math.max(0, list.length - 1); }
+    }
+
+    function renderDrawer() {
+        var list = drawerApps();
         els.grid.innerHTML = '';
-        for (var i = 0; i < list.length; i++) { els.grid.appendChild(tile(list[i], i)); }
+        for (var i = 0; i < list.length; i++) {
+            var el = item(list[i], 'grid-item');
+            if (editing && prefs.hidden[list[i].id]) { el.className += ' is-hidden'; }
+            if (onDock(list[i].id)) {
+                var b = doc.createElement('div');
+                b.className = 'badge';
+                b.textContent = 'On dock';
+                el.appendChild(b);
+            }
+            el.onclick = (function (n) { return function () { zone = 'drawer'; gridIndex = n; activate(); }; }(i));
+            els.grid.appendChild(el);
+        }
         els.empty.hidden = list.length > 0;
+        if (gridIndex >= list.length) { gridIndex = Math.max(0, list.length - 1); }
+        els.drawerHint.textContent = editing
+            ? 'Press OK on an app to add it to the dock, remove it, or hide it here.'
+            : 'Press OK to open. Back closes.';
+    }
 
-        if (focusIndex >= list.length) { focusIndex = Math.max(0, list.length - 1); }
-
-        doc.body.className = arranging ? 'arranging' : '';
-        els.edit.textContent = arranging ? 'Done' : 'Arrange';
-        els.mode.textContent = arranging ? 'Arrange mode' : '';
+    function render() {
+        renderDock();
+        if (!els.drawer.hidden) { renderDrawer(); }
+        doc.body.className = editing ? 'editing' : '';
+        els.btnEditLabel.textContent = editing ? 'Done' : 'Edit dock';
         if (moving) {
-            els.hint.textContent = 'Use the arrows to move it, then press OK to drop it here.';
-        } else if (arranging) {
-            els.hint.textContent = 'Press OK on an app to move, hide or show it. Back finishes.';
+            setHint('Left/Right to move it. OK to drop it here.');
+        } else if (editing) {
+            setHint('Press OK on a dock app to move or remove it. Back when you\'re done.');
         } else {
-            els.hint.textContent = 'Choose an app with the arrow keys and press OK.';
+            setHint('');
         }
         paintFocus();
     }
 
-    function paintFocus() {
-        var tiles = els.grid.children;
-        for (var i = 0; i < tiles.length; i++) {
-            var on = zone !== 'edit' && i === focusIndex;
-            tiles[i].className = tiles[i].className.replace(/\s?is-focused/g, '') + (on ? ' is-focused' : '');
-            if (on && tiles[i].scrollIntoView) {
-                tiles[i].scrollIntoView({ block: 'nearest' });
-            }
+    function setHint(text) { els.hint.textContent = text; els.hint.className = 'hint' + (text ? ' is-on' : ''); }
+
+    function mark(nodes, index, on) {
+        for (var i = 0; i < nodes.length; i++) {
+            var f = on && i === index;
+            nodes[i].className = nodes[i].className.replace(/\s?is-focused/g, '') + (f ? ' is-focused' : '');
+            if (f && nodes[i].scrollIntoView) { nodes[i].scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
         }
-        els.edit.className = 'pill' + (zone === 'edit' ? ' is-focused' : '');
+    }
+
+    function paintFocus() {
+        mark(els.dock.children, dockIndex, zone === 'dock');
+        mark(buttons, topIndex, zone === 'top');
+        mark(els.grid.children, gridIndex, zone === 'drawer');
+    }
+
+    /* ---------- drawer (All apps) ---------- */
+
+    function openDrawer() {
+        els.drawer.hidden = false;
+        zone = 'drawer';
+        gridIndex = 0;
+        renderDrawer();
+        paintFocus();
+    }
+
+    function closeDrawer() {
+        els.drawer.hidden = true;
+        zone = 'dock';
+        render();
     }
 
     /* ---------- menu ---------- */
@@ -228,78 +286,87 @@
     }
 
     function runMenu() {
-        var item = menu.items[menu.index];
+        var it = menu.items[menu.index];
         closeMenu();
-        item.run();
+        it.run();
     }
 
     /* ---------- actions ---------- */
 
-    function currentApp() {
-        return visibleApps()[focusIndex] || null;
+    function launch(app) {
+        D.launch(app.id, function (msg) {
+            setHint('Could not open ' + app.name + ': ' + msg);
+        });
     }
 
-    function focusApp(id) {
-        var list = visibleApps();
-        for (var i = 0; i < list.length; i++) {
-            if (list[i].id === id) { focusIndex = i; break; }
-        }
-        paintFocus();
-    }
-
-    function toggleArrange() {
-        arranging = !arranging;
+    function toggleEdit() {
+        editing = !editing;
         moving = null;
-        var app = currentApp();
         render();
-        if (app) { focusApp(app.id); }
+    }
+
+    function addToDock(id) { if (!onDock(id)) { prefs.dock.push(id); persist(); } }
+    function removeFromDock(id) {
+        var i = prefs.dock.indexOf(id);
+        if (i !== -1) { prefs.dock.splice(i, 1); persist(); }
     }
 
     function activate() {
-        if (zone === 'edit') { toggleArrange(); return; }
+        if (zone === 'top') {
+            if (topIndex === 0) { openDrawer(); } else { toggleEdit(); }
+            return;
+        }
 
-        var app = currentApp();
+        if (zone === 'drawer') {
+            var g = drawerApps()[gridIndex];
+            if (!g) { return; }
+            if (!editing) { launch(g); return; }
+            var docked = onDock(g.id);
+            var hidden = !!prefs.hidden[g.id];
+            openMenu(g.name, [
+                { label: docked ? 'Remove from dock' : 'Add to dock', run: function () {
+                    if (docked) { removeFromDock(g.id); } else { addToDock(g.id); }
+                    render();
+                } },
+                { label: hidden ? 'Show in All apps' : 'Hide from All apps', run: function () {
+                    if (hidden) { delete prefs.hidden[g.id]; } else { prefs.hidden[g.id] = true; }
+                    persist();
+                    render();
+                } },
+                { label: 'Cancel', run: function () {} }
+            ]);
+            return;
+        }
+
+        // Dock.
+        var app = dockApps()[dockIndex];
         if (!app) { return; }
-
-        if (moving) {
-            moving = null;
-            persist();
-            render();
-            return;
-        }
-
-        if (!arranging) {
-            D.launch(app.id, function (msg) {
-                els.hint.textContent = 'Could not open ' + app.name + ': ' + msg;
-            });
-            return;
-        }
-
-        var hidden = !!prefs.hidden[app.id];
+        if (app.kind === 'add') { openDrawer(); return; }
+        if (moving) { moving = null; persist(); render(); return; }
+        if (!editing) { launch(app); return; }
         openMenu(app.name, [
             { label: 'Move', run: function () { moving = app.id; render(); } },
-            { label: hidden ? 'Show on home' : 'Hide from home', run: function () {
-                if (hidden) { delete prefs.hidden[app.id]; } else { prefs.hidden[app.id] = true; }
-                persist();
-                render();
-            } },
+            { label: 'Remove from dock', run: function () { removeFromDock(app.id); render(); } },
             { label: 'Cancel', run: function () {} }
         ]);
     }
 
     function moveBy(delta) {
-        var to = focusIndex + delta;
-        if (to < 0 || to >= apps.length) { return; }
-        var item = apps.splice(focusIndex, 1)[0];
-        apps.splice(to, 0, item);
-        focusIndex = to;
+        var from = prefs.dock.indexOf(moving);
+        var to = from + delta;
+        if (from === -1 || to < 0 || to >= prefs.dock.length) { return; }
+        prefs.dock.splice(from, 1);
+        prefs.dock.splice(to, 0, moving);
+        dockIndex = to;
         render();
     }
 
     function back() {
         if (zone === 'menu') { closeMenu(); return; }
         if (moving) { moving = null; persist(); render(); return; }
-        if (arranging) { toggleArrange(); zone = 'grid'; paintFocus(); return; }
+        if (!els.drawer.hidden) { closeDrawer(); return; }
+        if (editing) { toggleEdit(); zone = 'dock'; paintFocus(); return; }
+        if (zone === 'top') { zone = 'dock'; paintFocus(); }
         // On the home screen itself Back does nothing: there is nowhere to go.
     }
 
@@ -311,29 +378,31 @@
             return;
         }
 
-        var count = visibleApps().length;
-
-        if (moving) {
-            moveBy(dx + dy * COLS);
+        if (zone === 'drawer') {
+            var count = drawerApps().length;
+            var next = gridIndex + dx + dy * COLS;
+            if (dx !== 0 && Math.floor(next / COLS) !== Math.floor(gridIndex / COLS)) { return; }
+            if (next < 0 || next >= count) { return; }
+            gridIndex = next;
+            paintFocus();
             return;
         }
 
-        if (zone === 'edit') {
-            if (dy < 0 && count) { zone = 'grid'; paintFocus(); }
+        if (moving) { if (dx) { moveBy(dx); } return; }
+
+        if (zone === 'top') {
+            if (dy > 0) { zone = 'dock'; paintFocus(); return; }
+            if (dx) { topIndex = Math.max(0, Math.min(buttons.length - 1, topIndex + dx)); paintFocus(); }
             return;
         }
 
-        var next = focusIndex + dx + dy * COLS;
-        if (dy > 0 && next >= count) {
-            // Below the last row: the Arrange button.
-            var lastRowStart = Math.floor((count - 1) / COLS) * COLS;
-            if (focusIndex >= lastRowStart) { zone = 'edit'; paintFocus(); return; }
-            next = count - 1;
+        // Dock.
+        if (dy < 0) { zone = 'top'; paintFocus(); return; }
+        var len = dockApps().length;
+        if (dx && dockIndex + dx >= 0 && dockIndex + dx < len) {
+            dockIndex += dx;
+            paintFocus();
         }
-        if (dx !== 0 && Math.floor(next / COLS) !== Math.floor(focusIndex / COLS)) { return; }
-        if (next < 0 || next >= count) { return; }
-        focusIndex = next;
-        paintFocus();
     }
 
     function onKey(e) {
@@ -357,45 +426,53 @@
         e.preventDefault();
     }
 
-    /* ---------- clock and backdrop ---------- */
+    /* ---------- wallpaper ---------- */
 
-    var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
-        'August', 'September', 'October', 'November', 'December'];
+    // A different photo from .local/wallpapers/ each time you come back to
+    // NIfty (never the same one twice in a row).
+    var walls = global.NIFTY_WALLPAPERS || [];
+    var wallIndex = -1;
+    var wallEl = doc.getElementById('wallpaper');
+
+    function nextWallpaper() {
+        if (!walls.length) { return; }
+        var i = Math.floor(Math.random() * walls.length);
+        if (walls.length > 1 && i === wallIndex) { i = (i + 1) % walls.length; }
+        wallIndex = i;
+        var img = new global.Image();
+        img.onload = function () { wallEl.style.backgroundImage = 'url("' + walls[i] + '")'; };
+        img.src = walls[i];
+    }
+
+    /* ---------- clock ---------- */
 
     function pad(n) { return n < 10 ? '0' + n : String(n); }
 
     function tick() {
         var now = new Date();
-        var h = now.getHours();
-        var h12 = h % 12 || 12;
-        els.time.textContent = h12 + ':' + pad(now.getMinutes());
-        els.date.textContent = DAYS[now.getDay()] + ', ' + MONTHS[now.getMonth()] + ' ' + now.getDate();
-
-        var part = h < 5 ? 'night' : h < 12 ? 'morning' : h < 17 ? 'afternoon' : h < 21 ? 'evening' : 'night';
-        els.greeting.textContent = part === 'night' ? 'Good night' : 'Good ' + part;
-        // One calm backdrop all day (the time-of-day skies were too bright).
-        els.backdrop.className = 'backdrop sky-evening';
+        els.time.textContent = (now.getHours() % 12 || 12) + ':' + pad(now.getMinutes());
     }
 
     /* ---------- start ---------- */
 
-    els.edit.onclick = function () { zone = 'edit'; activate(); };
+    els.btnAll.onclick = function () { zone = 'top'; topIndex = 0; activate(); };
+    els.btnEdit.onclick = function () { zone = 'top'; topIndex = 1; activate(); };
     doc.addEventListener('keydown', onKey);
     doc.addEventListener('visibilitychange', function () {
         // Pick up apps installed or removed while NIfty was in the background.
-        if (!doc.hidden) { refreshApps(); tick(); }
+        if (!doc.hidden) { refreshApps(); nextWallpaper(); }
     });
 
+    nextWallpaper();
     tick();
     setInterval(tick, 10000);
     refreshApps();
 
-    // Exposed for the browser smoke test only.
+    // Exposed for tests and debugging.
     global.NiftyHome = {
         state: function () {
-            return { zone: zone, focusIndex: focusIndex, arranging: arranging, moving: moving,
-                visible: visibleApps().map(function (a) { return a.name; }), prefs: prefs };
+            return { zone: zone, editing: editing, moving: moving, dock: prefs.dock.slice(),
+                dockIndex: dockIndex, gridIndex: gridIndex, drawerOpen: !els.drawer.hidden };
         }
     };
 }(window, document));
