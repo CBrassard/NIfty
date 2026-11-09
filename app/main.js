@@ -374,7 +374,8 @@
 
         var part = h < 5 ? 'night' : h < 12 ? 'morning' : h < 17 ? 'afternoon' : h < 21 ? 'evening' : 'night';
         els.greeting.textContent = part === 'night' ? 'Good night' : 'Good ' + part;
-        els.backdrop.className = 'backdrop sky-' + part;
+        // One calm backdrop all day (the time-of-day skies were too bright).
+        els.backdrop.className = 'backdrop sky-evening';
     }
 
     /* ---------- start ---------- */

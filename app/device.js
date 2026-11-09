@@ -19,8 +19,74 @@
         'samsung daily',
         'art store',
         'e-manual',
-        'promotion'
+        'user guide',
+        'promotion',
+        'bixby',
+        'securitycenter',
+        'security center',
+        'glance',
+        'gamebreaks',
+        'weekend games'
     ];
+
+    /*
+     * Which apps count as "real" apps. getAppsInfo() also returns hundreds of
+     * internal components (widgets, popups, background services) that newer
+     * firmware marks as visible. Tested against a 2026 TV: these rules keep
+     * exactly the apps in Samsung's own Apps list.
+     */
+    // Built-in (com./org.) apps that Samsung shows in its Apps list. Every
+    // other built-in ID is an internal component.
+    var BUILTIN_APPS = {
+        'org.tizen.netflix-app': true,
+        'org.tizen.primevideo': true,
+        'org.tizen.browser': true,
+        'com.samsung.tv.aria-video': true,        // Apple TV
+        'com.samsung.tv.SmartThingsApp': true,
+        'com.samsung.tv.google-photos-ui': true,
+        'com.samsung.tv.samsung-health': true,
+        'com.samsung.tv.bixby-promotion': true,
+        'com.samsung.tv.SecurityCenter': true,
+        'com.samsung.tv.store': true
+    };
+    // Store apps have a 10-character package ID, e.g. 9Ur5IzDKqV.TizenYouTube.
+    var STORE_ID = /^[A-Za-z0-9]{10}\.[A-Za-z0-9_-]+$/;
+    // Helper parts that store apps ship alongside the real app.
+    var HELPER = /service|preview|extension|cmswebapp|ad ?player|settings|privacy/i;
+
+    function isRealApp(id, name) {
+        if (BUILTIN_APPS[id]) { return true; }
+        if (!STORE_ID.test(id)) { return false; }
+        if (HELPER.test(id) || HELPER.test(name)) { return false; }
+        // Names like "2026.SmartTV.Kant" are internal IDs, not app names.
+        if (name.indexOf('.') !== -1 && name.indexOf(' ') === -1) { return false; }
+        return true;
+    }
+
+    // Tile colours: brand colours for well-known apps, otherwise a colour
+    // picked from PALETTE by the app's name so it stays the same every time.
+    var BRAND_COLORS = [
+        ['netflix', '#b20710'], ['youtube tv', '#cc0000'], ['youtube', '#cc0000'],
+        ['prime video', '#1a98ff'], ['disney', '#0b3d91'], ['hulu', '#1ce783'],
+        ['max', '#2b2bd9'], ['plex', '#e5a00d'], ['spotify', '#1db954'],
+        ['apple tv', '#333333'], ['jellyfin', '#7b4ddb'], ['peacock', '#222222'],
+        ['sling', '#1e88e5'], ['tubi', '#7408ff'], ['smartthings', '#15bfff'],
+        ['browser', '#3a7bd5'], ['internet', '#3a7bd5'], ['instagram', '#c13584'],
+        ['xbox', '#107c10'], ['luna', '#5a2ee0'], ['google photos', '#4285f4'],
+        ['stremio', '#5a3fc0'], ['paramount', '#0064ff'], ['pluto', '#1d1d1d']
+    ];
+    var PALETTE = ['#c0392b', '#d35400', '#e5a00d', '#27ae60', '#16a085',
+        '#2980b9', '#3a7bd5', '#5b4bd6', '#8e44ad', '#c2185b'];
+
+    function colorFor(name) {
+        var n = name.toLowerCase();
+        for (var i = 0; i < BRAND_COLORS.length; i++) {
+            if (n.indexOf(BRAND_COLORS[i][0]) !== -1) { return BRAND_COLORS[i][1]; }
+        }
+        var h = 0;
+        for (var j = 0; j < n.length; j++) { h = (h * 31 + n.charCodeAt(j)) % 100000; }
+        return PALETTE[h % PALETTE.length];
+    }
 
     var KEYS = {
         LEFT: 37,
@@ -76,7 +142,8 @@
                 for (var i = 0; i < infos.length; i++) {
                     var a = infos[i];
                     if (!a.show || a.id === self || !a.name) { continue; }
-                    list.push({ id: a.id, name: a.name, icon: a.iconPath || '' });
+                    if (!isRealApp(a.id, a.name)) { continue; }
+                    list.push({ id: a.id, name: a.name, icon: a.iconPath || '', color: colorFor(a.name) });
                 }
                 done(list);
             }, function (err) {
@@ -105,7 +172,8 @@
     }
 
     /** Simple persistent storage (localStorage works inside Tizen web apps). */
-    var STORE_KEY = 'nifty.home.v1';
+    // v2: the app filter changed, so re-run the first-start hidden list.
+    var STORE_KEY = 'nifty.home.v2';
 
     function load() {
         try {
