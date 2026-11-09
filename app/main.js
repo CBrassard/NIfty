@@ -427,16 +427,19 @@
 
     /* ---------- wallpaper ---------- */
 
-    // A different photo from .local/wallpapers/ each time you come back to
-    // NIfty (never the same one twice in a row).
+    // Photos from .local/wallpapers/ take turns: a new one every
+    // WALL_HOURS hours (by the clock, so it's the same photo whether NIfty
+    // was just opened or has been on screen all along).
+    var WALL_HOURS = 6;
     var walls = global.NIFTY_WALLPAPERS || [];
     var wallIndex = -1;
     var wallEl = doc.getElementById('wallpaper');
 
-    function nextWallpaper() {
+    function updateWallpaper() {
         if (!walls.length) { return; }
-        var i = Math.floor(Math.random() * walls.length);
-        if (walls.length > 1 && i === wallIndex) { i = (i + 1) % walls.length; }
+        var slot = Math.floor(Date.now() / (WALL_HOURS * 3600 * 1000));
+        var i = slot % walls.length;
+        if (i === wallIndex) { return; }
         wallIndex = i;
         var img = new global.Image();
         img.onload = function () { wallEl.style.backgroundImage = 'url("' + walls[i] + '")'; };
@@ -450,6 +453,7 @@
     function tick() {
         var now = new Date();
         els.time.textContent = (now.getHours() % 12 || 12) + ':' + pad(now.getMinutes());
+        updateWallpaper();
     }
 
     /* ---------- start ---------- */
@@ -459,10 +463,10 @@
     doc.addEventListener('keydown', onKey);
     doc.addEventListener('visibilitychange', function () {
         // Pick up apps installed or removed while NIfty was in the background.
-        if (!doc.hidden) { refreshApps(); nextWallpaper(); }
+        if (!doc.hidden) { refreshApps(); updateWallpaper(); }
     });
 
-    nextWallpaper();
+    updateWallpaper();
     tick();
     setInterval(tick, 10000);
     refreshApps();

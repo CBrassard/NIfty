@@ -27,7 +27,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     background: #1d2a30 linear-gradient(160deg, #26333b 0%, #34474f 50%, #1b2429 100%);
     background-size: cover;
     background-position: center;
-    transition: opacity 600ms ease;
+    transition: background-image 1.2s ease;
 }
 .shade {
     position: fixed;
