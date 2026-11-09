@@ -1,0 +1,18 @@
+# Samsung TV ads / ACR / tracking blocklist (hosts format)
+# For Pi-hole, AdGuard Home, or any DNS filter that accepts hosts files.
+# These domains come from public community blocklists. Samsung changes its
+# servers often, so check your DNS query log and add or allow domains as needed.
+# The app store, sign-in and firmware update servers are deliberately left out.
+
+0.0.0.0 ads.samsung.com
+0.0.0.0 samsungads.com
+0.0.0.0 config.samsungads.com
+0.0.0.0 samsungadhub.com
+0.0.0.0 ad.samsungadhub.com
+0.0.0.0 samsungacr.com
+0.0.0.0 log-config.samsungacr.com
+0.0.0.0 log-ingestion.samsungacr.com
+0.0.0.0 log-ingestion-eu.samsungacr.com
+0.0.0.0 acr0.samsungcloudsolution.com
+0.0.0.0 samsungtifa.com
+0.0.0.0 samsung-com.112.2o7.net

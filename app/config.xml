@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  NIfty: a quiet home screen for Samsung Tizen TVs.
+
+  IMPORTANT: the package and id below are placeholders. scripts/build.sh
+  replaces them with the values in .local/tv.env (TIZEN_PACKAGE_ID /
+  TIZEN_APP_ID). Keep the same IDs forever once installed, or the TV will
+  treat a rebuild as a different app.
+-->
+<widget xmlns="http://www.w3.org/ns/widgets"
+        xmlns:tizen="http://tizen.org/ns/widgets"
+        id="http://github.com/cbrassard/nifty"
+        version="1.0.0"
+        viewmodes="maximized">
+    <tizen:application id="NIftyHome0.NIfty" package="NIftyHome0" required_version="5.0"/>
+    <content src="index.html"/>
+    <icon src="icon.png"/>
+    <name>NIfty</name>
+    <description>A quiet, ad-free home screen for Samsung TVs.</description>
+
+    <feature name="http://tizen.org/feature/screen.size.all"/>
+
+    <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
+    <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+
+    <tizen:profile name="tv-samsung"/>
+    <tizen:setting screen-orientation="landscape"
+                   context-menu="disable"
+                   background-support="disable"
+                   encryption="disable"
+                   install-location="auto"
+                   hwkey-event="enable"/>
+    <tizen:metadata key="http://samsung.com/tv/metadata/use.preview" value="bg_service"/>
+</widget>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <title>NIfty</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="backdrop" class="backdrop"></div>
+
+    <main class="screen">
+        <header class="top">
+            <div class="clock">
+                <div id="time" class="time">--:--</div>
+                <div id="date" class="date"></div>
+            </div>
+            <div id="greeting" class="greeting"></div>
+        </header>
+
+        <section class="apps">
+            <div class="apps-head">
+                <h1 class="label">Apps</h1>
+                <div id="mode" class="mode"></div>
+            </div>
+            <div id="grid" class="grid" role="list"></div>
+            <div id="empty" class="empty" hidden>No apps found.</div>
+        </section>
+
+        <footer class="bottom">
+            <button id="edit" class="pill" data-focus="edit">Arrange</button>
+            <span id="hint" class="hint">Choose an app with the arrow keys and press OK.</span>
+        </footer>
+    </main>
+
+    <div id="menu" class="menu" hidden>
+        <div class="menu-card">
+            <div id="menu-title" class="menu-title"></div>
+            <div id="menu-items" class="menu-items"></div>
+        </div>
+    </div>
+
+    <script src="device.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
