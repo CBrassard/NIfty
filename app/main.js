@@ -123,25 +123,24 @@
         return s || '?';
     }
 
-    // Small icon: the app's own icon, a drawn glyph, or its initials.
+    // Icon: a white service mark from icons/, else the app's own icon,
+    // else its initials.
     function iconEl(app) {
         var box = doc.createElement('div');
         box.className = 'icon';
-        if (app.kind === 'livetv') {
-            box.className += ' icon-glyph';
-            box.innerHTML = '<span class="g-tv"><i></i></span>';
-            return box;
-        }
-        if (app.kind === 'add') {
-            box.className += ' icon-glyph';
-            box.innerHTML = '<span class="g-plus"></span>';
+        if (app.kind === 'add') { app = { name: app.name, mark: 'icons/add.svg' }; }
+        if (app.mark) {
+            box.className += ' icon-mark';
+            var m = doc.createElement('img');
+            m.alt = '';
+            m.src = app.mark;
+            box.appendChild(m);
             return box;
         }
         var letter = doc.createElement('span');
         letter.className = 'letter';
         letter.textContent = initials(app.name);
         box.appendChild(letter);
-        if (app.color) { box.style.backgroundColor = app.color; }
         if (app.icon) {
             var img = doc.createElement('img');
             img.alt = '';

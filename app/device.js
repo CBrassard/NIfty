@@ -75,6 +75,25 @@
         ['xbox', '#107c10'], ['luna', '#5a2ee0'], ['google photos', '#4285f4'],
         ['stremio', '#5a3fc0'], ['paramount', '#0064ff'], ['pluto', '#1d1d1d']
     ];
+    // White service marks in icons/ (sources and licences: icons/SOURCES.md).
+    // First match on the app name wins; apps without a mark use their own icon.
+    var MARKS = [
+        ['youtube tv', ''], ['netflix', 'netflix'], ['youtube', 'youtube'],
+        ['prime video', 'primevideo'], ['disney', 'disneyplus'], ['hulu', 'hulu'],
+        ['apple tv', 'appletv'], ['stremio', 'stremio'], ['spotify', 'spotify'],
+        ['tubi', 'tubi'], ['hbo max', 'hbomax'], ['max', 'hbomax']
+    ];
+
+    function markFor(name) {
+        var n = name.toLowerCase();
+        for (var i = 0; i < MARKS.length; i++) {
+            if (n === MARKS[i][0] || n.indexOf(MARKS[i][0]) === 0) {
+                return MARKS[i][1] ? 'icons/' + MARKS[i][1] + '.svg' : '';
+            }
+        }
+        return '';
+    }
+
     var PALETTE = ['#c0392b', '#d35400', '#e5a00d', '#27ae60', '#16a085',
         '#2980b9', '#3a7bd5', '#5b4bd6', '#8e44ad', '#c2185b'];
 
@@ -110,7 +129,8 @@
 
     // "Live TV" opens the TV's own antenna/cable viewer, like the Live TV
     // tile on Samsung's home bar. It isn't in the app list, so add it here.
-    var LIVE_TV = { id: 'org.tizen.tv-viewer', name: 'Live TV', icon: '', color: '#2f6f5e', kind: 'livetv' };
+    var LIVE_TV = { id: 'org.tizen.tv-viewer', name: 'Live TV', icon: '', mark: 'icons/livetv.svg',
+        color: '#2f6f5e', kind: 'livetv' };
 
     // Apps put on the dock the first time NIfty starts, in this order.
     // Matched against the app name, case-insensitive: exact match first,
@@ -129,6 +149,7 @@
                 id: 'preview.' + PREVIEW_APPS[i].toLowerCase().replace(/[^a-z0-9]/g, ''),
                 name: PREVIEW_APPS[i],
                 icon: '',
+                mark: markFor(PREVIEW_APPS[i]),
                 color: colorFor(PREVIEW_APPS[i])
             });
         }
@@ -150,7 +171,8 @@
                     var a = infos[i];
                     if (!a.show || a.id === self || !a.name) { continue; }
                     if (!isRealApp(a.id, a.name)) { continue; }
-                    list.push({ id: a.id, name: a.name, icon: a.iconPath || '', color: colorFor(a.name) });
+                    list.push({ id: a.id, name: a.name, icon: a.iconPath || '',
+                        mark: markFor(a.name), color: colorFor(a.name) });
                 }
                 list.push(LIVE_TV);
                 done(list);
