@@ -30,6 +30,12 @@ SDB="$(first_file "$TIZEN_STUDIO/tools/sdb" "$TIZEN_STUDIO/tools/sdb.exe")"
 [[ -n "$TIZEN" ]] || TIZEN="$(command -v tizen || command -v tizen.bat || true)"
 [[ -n "$SDB" ]] || SDB="$(command -v sdb || command -v sdb.exe || true)"
 
+# Path to hand to tizen/sdb. On Windows these are native programs that read
+# /c/Users/... as C:\c\Users\..., so convert to C:\Users\... there.
+native_path() {
+    if command -v cygpath >/dev/null 2>&1; then cygpath -w "$1"; else echo "$1"; fi
+}
+
 need() {
     if [[ -z "${!1:-}" ]]; then echo "Set $1 in $ENV_FILE" >&2; exit 1; fi
 }

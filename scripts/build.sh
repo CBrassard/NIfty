@@ -22,8 +22,8 @@ sed -i.bak \
     "$STAGE/config.xml"
 rm -f "$STAGE/config.xml.bak"
 
-"$TIZEN" build-web -- "$STAGE"
-"$TIZEN" package -t wgt -s "$CERT_PROFILE" -- "$STAGE/.buildResult"
+"$TIZEN" build-web -- "$(native_path "$STAGE")"
+"$TIZEN" package -t wgt -s "$CERT_PROFILE" -- "$(native_path "$STAGE/.buildResult")"
 
 BUILT="$(ls -t "$STAGE/.buildResult"/*.wgt | head -n1)"
 cp "$BUILT" "$WGT"

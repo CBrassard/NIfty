@@ -12,13 +12,13 @@ if ! "$SDB" devices | grep -q "$SERIAL"; then
     exit 1
 fi
 
-OUT="$("$TIZEN" install -n "$WGT" -s "$SERIAL" 2>&1 | tee /dev/stderr)"
+OUT="$("$TIZEN" install -n "$(native_path "$WGT")" -s "$SERIAL" 2>&1 | tee /dev/stderr)"
 if ! grep -qiE "install(ed|ing)? (completed|succeeded)|Installed the package" <<<"$OUT"; then
     # Some newer TVs only upload the file with `tizen install`. Ask the TV's
     # own installer to finish the job.
     echo "Falling back to vd_appinstall on the TV..." >&2
     REMOTE="/home/owner/share/tmp/sdk_tools/tmp/$(basename "$WGT")"
-    "$SDB" -s "$SERIAL" push "$WGT" "$REMOTE"
+    "$SDB" -s "$SERIAL" push "$(native_path "$WGT")" "$REMOTE"
     OUT2="$("$SDB" -s "$SERIAL" shell 0 vd_appinstall "$TIZEN_APP_ID" "$REMOTE" 2>&1 | tee /dev/stderr)"
     grep -qi "install completed" <<<"$OUT2" || { echo "Install failed." >&2; exit 1; }
 fi
