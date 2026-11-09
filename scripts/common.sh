@@ -14,10 +14,21 @@ fi
 source "$ENV_FILE"
 
 TIZEN_STUDIO="${TIZEN_STUDIO:-$HOME/tizen-studio}"
-TIZEN="$TIZEN_STUDIO/tools/ide/bin/tizen"
-SDB="$TIZEN_STUDIO/tools/sdb"
-[[ -x "$TIZEN" ]] || TIZEN="$(command -v tizen || true)"
-[[ -x "$SDB" ]] || SDB="$(command -v sdb || true)"
+# Windows (Git Bash / MSYS): accept C:\tizen-studio or C:/tizen-studio.
+if command -v cygpath >/dev/null 2>&1; then
+    TIZEN_STUDIO="$(cygpath -u "$TIZEN_STUDIO")"
+fi
+
+# First existing file among the arguments, else empty.
+first_file() {
+    local f
+    for f in "$@"; do [[ -f "$f" ]] && { echo "$f"; return; }; done
+}
+# On Windows the CLI is tizen.bat and sdb is sdb.exe.
+TIZEN="$(first_file "$TIZEN_STUDIO/tools/ide/bin/tizen" "$TIZEN_STUDIO/tools/ide/bin/tizen.bat")"
+SDB="$(first_file "$TIZEN_STUDIO/tools/sdb" "$TIZEN_STUDIO/tools/sdb.exe")"
+[[ -n "$TIZEN" ]] || TIZEN="$(command -v tizen || command -v tizen.bat || true)"
+[[ -n "$SDB" ]] || SDB="$(command -v sdb || command -v sdb.exe || true)"
 
 need() {
     if [[ -z "${!1:-}" ]]; then echo "Set $1 in $ENV_FILE" >&2; exit 1; fi
